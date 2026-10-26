@@ -1,0 +1,66 @@
+# Builds the Cubify Android app (debug APK) on GitHub's servers, so nothing has to be installed on your computer.
+# Run it from the Actions tab ("Run workflow"). The finished APK is attached to the run as "Cubify-debug-apk".
+name: Build Cubify APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Get the files
+        uses: actions/checkout@v4
+
+      - name: Find the project folder
+        id: proj
+        run: |
+          # You can upload cubify-project.zip as it is, or the unzipped files.
+          if [ -f cubify-project.zip ]; then unzip -oq cubify-project.zip; fi
+          if [ -d cube-timer-app ]; then echo "dir=cube-timer-app" >> "$GITHUB_OUTPUT"; else echo "dir=." >> "$GITHUB_OUTPUT"; fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install the tools
+        working-directory: ${{ steps.proj.outputs.dir }}
+        run: npm install
+
+      - name: Create the Android project
+        working-directory: ${{ steps.proj.outputs.dir }}
+        run: npx cap add android
+
+      - name: Make the icons and splash screens
+        working-directory: ${{ steps.proj.outputs.dir }}
+        run: npx @capacitor/assets generate --android
+
+      - name: Copy the app into the Android project
+        working-directory: ${{ steps.proj.outputs.dir }}
+        run: npx cap sync android
+
+      - name: Build the APK
+        working-directory: ${{ steps.proj.outputs.dir }}/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+
+      - name: Keep the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cubify-debug-apk
+          path: ${{ steps.proj.outputs.dir }}/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
