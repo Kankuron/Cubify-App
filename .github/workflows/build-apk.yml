@@ -35,6 +35,11 @@ jobs:
 
       - name: Set up the Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The default list asks for the old 'tools' package, which no longer exists
+          # and made this step fail. platform-tools is all that is needed here;
+          # Gradle fetches the Android platform and build-tools it needs by itself.
+          packages: platform-tools
 
       - name: Install the tools
         working-directory: ${{ steps.proj.outputs.dir }}
